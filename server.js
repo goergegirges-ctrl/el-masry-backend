@@ -1,6 +1,7 @@
 import "dotenv/config"
 import express from "express"
 import cors from "cors"
+import cookieParser from "cookie-parser"
 import { supabase } from "./config/supabaseClient.js"
 import productRouter from "./routs/productRoute.js"
 import orderRouter from "./routs/orderRoute.js"
@@ -13,7 +14,25 @@ const port = process.env.PORT || 4000
 
 // middleware
 app.use(express.json())
-app.use(cors())
+app.use(cookieParser())
+
+// CORS configuration - Allow multiple origins including local dev
+const allowedOrigins = [
+  'http://localhost:5173', // Frontend
+  'http://localhost:5174', // Admin
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}))
+
 app.use("/images", express.static('uploads'))
 
 // api endpoints

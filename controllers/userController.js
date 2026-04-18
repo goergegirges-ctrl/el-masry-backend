@@ -4,9 +4,14 @@ import jwt from "jsonwebtoken";
 import validator from "validator";
 import crypto from "crypto";
 
-// Helper function to create token
-const createToken = (id, role = 'customer') => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// Helper function to create access token (short lived)
+const createAccessToken = (id, role = 'user') => {
+    return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '15m' });
+}
+
+// Helper function to create refresh token (long lived)
+const createRefreshToken = (id) => {
+    return jwt.sign({ id }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 }
 
 // @desc    Register new user
@@ -61,14 +66,26 @@ const registerUser = async (req, res) => {
 
         if (error) throw error;
 
-        const token = createToken(newUser.id);
+        const accessToken = createAccessToken(newUser.id, 'user');
+        const refreshToken = createRefreshToken(newUser.id);
+
+        // Set refresh token in HTTPOnly cookie
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
 
         res.json({
-            success: true, token, user: {
+            success: true, 
+            token: accessToken, // Frontend receives access token
+            user: {
                 id: newUser.id,
                 firstName: newUser.firstName,
                 lastName: newUser.lastName,
-                email: newUser.email
+                email: newUser.email,
+                role: 'user'
             }
         });
 
@@ -97,13 +114,26 @@ const loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (isMatch) {
-            const token = createToken(user.id);
+            const accessToken = createAccessToken(user.id, user.role || 'user');
+            const refreshToken = createRefreshToken(user.id);
+
+            // Set refresh token in HTTPOnly cookie
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            });
+
             res.json({
-                success: true, token, user: {
+                success: true, 
+                token: accessToken,
+                user: {
                     id: user.id,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    email: user.email
+                    email: user.email,
+                    role: user.role || 'user'
                 }
             });
         } else {
@@ -251,4 +281,49 @@ const updateProfile = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile };
+// @desc    Refresh access token
+// @route   GET /api/users/refresh
+const refreshToken = async (req, res) => {
+    try {
+        const cookies = req.cookies;
+        if (!cookies?.refreshToken) {
+            return res.status(401).json({ success: false, message: "No refresh token provided" });
+        }
+
+        const refreshToken = cookies.refreshToken;
+
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
+            if (err) return res.status(403).json({ success: false, message: "Invalid refresh token" });
+
+            const { data: admin } = await supabase
+                .from('admins')
+                .select('id')
+                .eq('id', decoded.id)
+                .single();
+
+            if (admin) {
+                const accessToken = createAccessToken(admin.id, 'admin');
+                return res.json({ success: true, token: accessToken });
+            }
+
+            const { data: user, error } = await supabase
+                .from('users')
+                .select('id, role')
+                .eq('id', decoded.id)
+                .single();
+
+            if (error || !user) {
+                return res.status(401).json({ success: false, message: "User not found" });
+            }
+
+            const accessToken = createAccessToken(user.id, user.role || 'user');
+            res.json({ success: true, token: accessToken });
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+export { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile, refreshToken };

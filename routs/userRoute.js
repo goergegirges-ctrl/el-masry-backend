@@ -1,15 +1,16 @@
 import express from "express";
 
-import { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile } from "../controllers/userController.js";
-import authMiddleware from "../middlewar/auth.js";
+import { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile, refreshToken } from "../controllers/userController.js";
+import authUser from "../middlewar/authUser.js";
 
 const userRouter = express.Router();
 
 userRouter.post("/register", registerUser);
 userRouter.post("/login", loginUser);
-userRouter.get("/profile", authMiddleware, getProfile);
-userRouter.put("/profile", authMiddleware, updateProfile);
-userRouter.post("/wishlist", authMiddleware, toggleWishlist);
-userRouter.post("/sync-wishlist", authMiddleware, syncWishlist);
+userRouter.get("/refresh", refreshToken);
+userRouter.get("/profile", authUser, getProfile);
+userRouter.put("/profile", authUser, updateProfile);
+userRouter.post("/wishlist", authUser, toggleWishlist);
+userRouter.post("/sync-wishlist", authUser, syncWishlist);
 
 export default userRouter;

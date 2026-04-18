@@ -14,17 +14,40 @@ const adminLogin = async (req, res) => {
         if (error || !admin) {
             return res.status(404).json({ success: false, message: "Admin not found" });
         }
-        
-        // Supabase admins might have hashed passwords. Assuming bcrypt logic is consistent.
-        // Wait, did we hash passwords during migration? Let's check or assume it was hashed.
+
         const isMatch = await bcrypt.compare(password, admin.password);
         if (!isMatch) {
             return res.status(401).json({ success: false, message: "Invalid credentials" });
         }
-        
-        // Note: admin ID migrated from Mongo usually string representation of ObjectId.
-        const token = jwt.sign({ id: admin.id, email: admin.email, role: 'admin' }, process.env.JWT_SECRET);
-        res.json({ success: true, token });
+
+        const accessToken = jwt.sign(
+            { id: admin.id, email: admin.email, role: 'admin' },
+            process.env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+        const refreshToken = jwt.sign(
+            { id: admin.id },
+            process.env.REFRESH_TOKEN_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.json({
+            success: true,
+            token: accessToken,
+            user: {
+                id: admin.id,
+                email: admin.email,
+                name: admin.name,
+                role: 'admin'
+            }
+        });
     } catch (error) {
         console.error("Admin Login Error:", error);
         res.status(500).json({ success: false, message: "Server error during login" });
