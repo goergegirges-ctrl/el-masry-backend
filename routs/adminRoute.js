@@ -1,15 +1,15 @@
 import express from "express";
-import { 
-    adminLogin, 
-    getCustomers, 
-    getCustomerById, 
+import {
+    adminLogin,
+    getCustomers,
+    getCustomerById,
     getAnalyticsSummary,
-    getWishlistPopular, 
-    getBestSellers, 
-    getCategoryAnalytics, 
-    getInventoryAlerts 
+    getWishlistPopular,
+    getBestSellers,
+    getCategoryAnalytics,
+    getInventoryAlerts
 } from "../controllers/adminController.js";
-import { getDashboardStats } from "../controllers/orderController.js";
+import { getDashboardStats, getOrderById } from "../controllers/orderController.js";
 import authAdmin from "../middlewar/authAdmin.js";
 
 const adminRouter = express.Router();
@@ -17,6 +17,9 @@ const adminRouter = express.Router();
 adminRouter.post("/login", adminLogin);
 adminRouter.get("/dashboard", authAdmin, getDashboardStats);
 adminRouter.get("/analytics/summary", authAdmin, getAnalyticsSummary);
+
+// Order detail (admin view — uses authAdmin, not authUser)
+adminRouter.get("/order/:id", authAdmin, getOrderById);
 
 // Customer Management
 adminRouter.get("/customers", authAdmin, getCustomers);
