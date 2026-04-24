@@ -60,14 +60,28 @@ const getCustomerById = async (req, res) => {
     try {
         const { id } = req.params;
 
+        console.log(`[getCustomerById] Looking up customer id: "${id}" (type: ${typeof id})`);
+
         const { data: customer, error: cusError } = await supabase
             .from('users')
             .select('id, firstName, lastName, email, phone, savedAddresses, wishlist, role, createdAt')
             .eq('id', id)
             .single();
-            
-        if (cusError || !customer) {
-            return res.json({ success: false, message: "Customer not found" });
+
+        if (cusError) {
+            // PGRST116 = PostgREST "no rows returned" — not a server error
+            const isNotFound = cusError.code === 'PGRST116';
+            console.error(`[getCustomerById] Supabase error (code: ${cusError.code}):`, cusError.message);
+            return res.json({
+                success: false,
+                message: isNotFound
+                    ? `Customer not found (id: ${id})`
+                    : `Database error: ${cusError.message}`
+            });
+        }
+
+        if (!customer) {
+            return res.json({ success: false, message: `Customer not found (id: ${id})` });
         }
 
         const { data: rawOrders } = await supabase
