@@ -326,4 +326,93 @@ const refreshToken = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile, refreshToken };
+// @desc    OAuth login (Google / Facebook via Supabase)
+// @route   POST /api/users/oauth-login
+const oauthLogin = async (req, res) => {
+    const { supabaseUserId, email, firstName, lastName, provider } = req.body;
+
+    try {
+        if (!supabaseUserId || !email) {
+            return res.json({ success: false, message: 'Missing required OAuth fields' });
+        }
+
+        // 1. Try to find existing user by email
+        const { data: existingUser } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+        if (existingUser) {
+            // User exists — return JWT
+            const accessToken = createAccessToken(existingUser.id, existingUser.role || 'customer');
+            const refreshTokenVal = createRefreshToken(existingUser.id);
+
+            res.cookie('refreshToken', refreshTokenVal, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+            });
+
+            return res.json({
+                success: true,
+                token: accessToken,
+                user: {
+                    id: existingUser.id,
+                    firstName: existingUser.firstName,
+                    lastName: existingUser.lastName,
+                    email: existingUser.email,
+                    role: existingUser.role || 'customer',
+                },
+            });
+        }
+
+        // 2. New OAuth user — insert with Supabase UUID, no password
+        const newUser = {
+            id: supabaseUserId,
+            firstName: firstName || email.split('@')[0],
+            lastName: lastName || '',
+            email,
+            password: null,
+            wishlist: [],
+            role: 'customer',
+        };
+
+        const { data: createdUser, error } = await supabase
+            .from('users')
+            .insert([newUser])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        const accessToken = createAccessToken(createdUser.id, 'customer');
+        const refreshTokenVal = createRefreshToken(createdUser.id);
+
+        res.cookie('refreshToken', refreshTokenVal, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.json({
+            success: true,
+            token: accessToken,
+            user: {
+                id: createdUser.id,
+                firstName: createdUser.firstName,
+                lastName: createdUser.lastName,
+                email: createdUser.email,
+                role: 'customer',
+            },
+        });
+    } catch (error) {
+        console.log('oauthLogin error:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export { registerUser, loginUser, getProfile, toggleWishlist, syncWishlist, updateProfile, refreshToken, oauthLogin };
+
