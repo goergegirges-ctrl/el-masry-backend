@@ -93,6 +93,17 @@ const getCustomerById = async (req, res) => {
 
         const orders = rawOrders || [];
 
+        // Enrich wishlist IDs into full product objects
+        const wishlistIds = customer.wishlist || [];
+        let wishlistProducts = [];
+        if (wishlistIds.length > 0) {
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, name, price, images, stock')
+                .in('id', wishlistIds);
+            wishlistProducts = products || [];
+        }
+
         // Calculate stats
         const totalOrders = orders.length;
         const totalSpent = orders.reduce((acc, order) => acc + (Number(order.subtotal) || 0), 0);
@@ -102,6 +113,7 @@ const getCustomerById = async (req, res) => {
             success: true,
             customer,
             orders,
+            wishlistProducts,
             stats: {
                 totalOrders,
                 totalSpent,
