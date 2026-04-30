@@ -17,11 +17,13 @@ const port = process.env.PORT || 4000
 app.use(express.json())
 app.use(cookieParser())
 
-// CORS configuration - Allow multiple origins including local dev
+// CORS configuration
 const allowedOrigins = [
-  'http://localhost:5173', // Frontend
-  'http://localhost:5174', // Admin
-];
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL,
+  'http://localhost:5173',
+  'http://localhost:5174',
+].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -45,6 +47,10 @@ app.use("/api/reviews", reviewRouter)
 
 app.get("/", (req, res) => {
   res.send("API Working ✅")
+})
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // Connect to Database/Services first, then start the server
