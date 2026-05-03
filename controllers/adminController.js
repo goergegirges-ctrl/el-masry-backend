@@ -388,13 +388,109 @@ const getCustomers = async (req, res) => {
     }
 }
 
-export { 
-    adminLogin, 
+// @desc    Dashboard charts: orders-by-status, daily revenue (30d), recent orders, customer stats, avg order value
+const getDashboardCharts = async (req, res) => {
+    try {
+        const [ordersRes, usersRes] = await Promise.all([
+            supabase.from('orders').select('id, status, subtotal, createdAt, customer, items'),
+            supabase.from('users').select('id, createdAt, role'),
+        ]);
+
+        if (ordersRes.error) throw ordersRes.error;
+
+        const orders = ordersRes.data || [];
+        const users = usersRes.data || [];
+
+        // Orders by status
+        const statusCounts = {};
+        for (const o of orders) {
+            statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+        }
+        const ordersByStatus = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+
+        // Daily revenue — last 30 days
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const dailyMap = {};
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(thirtyDaysAgo.getTime() + i * 24 * 60 * 60 * 1000);
+            dailyMap[d.toISOString().slice(0, 10)] = 0;
+        }
+        for (const o of orders) {
+            const day = new Date(o.createdAt).toISOString().slice(0, 10);
+            if (day in dailyMap) dailyMap[day] += Number(o.subtotal) || 0;
+        }
+        const dailyRevenue = Object.entries(dailyMap)
+            .map(([date, revenue]) => ({ date, revenue }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        // Recent 5 orders
+        const recentOrders = [...orders]
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 5)
+            .map(o => ({
+                id: o.id,
+                customerName: o.customer?.name || o.customer?.firstName || 'Guest',
+                status: o.status,
+                subtotal: Number(o.subtotal) || 0,
+                createdAt: o.createdAt,
+            }));
+
+        // Customer stats — this month vs last month
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const thisMonthCustomers = users.filter(u => new Date(u.createdAt) >= startOfThisMonth).length;
+        const lastMonthCustomers = users.filter(u => {
+            const d = new Date(u.createdAt);
+            return d >= startOfLastMonth && d < startOfThisMonth;
+        }).length;
+
+        // Avg order value (non-cancelled)
+        const validOrders = orders.filter(o => o.status !== 'cancelled');
+        const avgOrderValue = validOrders.length > 0
+            ? validOrders.reduce((s, o) => s + (Number(o.subtotal) || 0), 0) / validOrders.length
+            : 0;
+
+        // Top 5 selling products
+        const productSales = {};
+        for (const o of orders.filter(ord => ord.status !== 'cancelled')) {
+            for (const item of (o.items || [])) {
+                const pid = item.productId;
+                if (!pid) continue;
+                if (!productSales[pid]) productSales[pid] = { id: pid, name: item.name, unitsSold: 0, revenue: 0 };
+                productSales[pid].unitsSold += item.quantity || 1;
+                productSales[pid].revenue += (item.quantity || 1) * (item.price || 0);
+            }
+        }
+        const topProducts = Object.values(productSales)
+            .sort((a, b) => b.unitsSold - a.unitsSold)
+            .slice(0, 5);
+
+        res.json({
+            success: true,
+            data: {
+                ordersByStatus,
+                dailyRevenue,
+                recentOrders,
+                customerStats: { thisMonth: thisMonthCustomers, lastMonth: lastMonthCustomers },
+                avgOrderValue: Math.round(avgOrderValue),
+                topProducts,
+            }
+        });
+    } catch (error) {
+        console.error('getDashboardCharts error:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export {
+    adminLogin,
     getCustomers,
-    getCustomerById, 
+    getCustomerById,
     getAnalyticsSummary,
-    getWishlistPopular, 
-    getBestSellers, 
-    getCategoryAnalytics, 
-    getInventoryAlerts 
+    getWishlistPopular,
+    getBestSellers,
+    getCategoryAnalytics,
+    getInventoryAlerts,
+    getDashboardCharts,
 };

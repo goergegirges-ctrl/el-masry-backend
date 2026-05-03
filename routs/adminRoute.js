@@ -7,7 +7,8 @@ import {
     getWishlistPopular,
     getBestSellers,
     getCategoryAnalytics,
-    getInventoryAlerts
+    getInventoryAlerts,
+    getDashboardCharts,
 } from "../controllers/adminController.js";
 import { getDashboardStats, getOrderById } from "../controllers/orderController.js";
 import authAdmin from "../middlewar/authAdmin.js";
@@ -30,5 +31,6 @@ adminRouter.get("/analytics/wishlist-popular", authAdmin, getWishlistPopular);
 adminRouter.get("/analytics/best-sellers", authAdmin, getBestSellers);
 adminRouter.get("/analytics/by-category", authAdmin, getCategoryAnalytics);
 adminRouter.get("/analytics/inventory-alerts", authAdmin, getInventoryAlerts);
+adminRouter.get("/dashboard/charts", authAdmin, getDashboardCharts);
 
 export default adminRouter;

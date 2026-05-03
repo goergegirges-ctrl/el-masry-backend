@@ -54,7 +54,7 @@ const placeOrder = async (req, res) => {
 // Get user specific orders
 const getUserOrders = async (req, res) => {
     try {
-        const { userId } = req.body; // Set by auth middleware
+        const userId = req.userId; // Set by authUser middleware on req, not req.body
         if (!userId) return res.json({ success: false, message: "User ID required" });
 
         const { data: orders, error } = await supabase
