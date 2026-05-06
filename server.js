@@ -2,6 +2,7 @@ import dotenv from "dotenv"
 dotenv.config({ override: true })
 import express from "express"
 import cors from "cors"
+import helmet from "helmet"
 import cookieParser from "cookie-parser"
 import { supabase } from "./config/supabaseClient.js"
 import productRouter from "./routs/productRoute.js"
@@ -14,6 +15,7 @@ const app = express()
 const port = process.env.PORT || 4000
 
 // middleware
+app.use(helmet())
 app.use(express.json())
 app.use(cookieParser())
 

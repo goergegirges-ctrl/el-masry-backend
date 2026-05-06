@@ -108,7 +108,7 @@ const loginUser = async (req, res) => {
             .single();
 
         if (error || !user) {
-            return res.json({ success: false, message: "User doesn't exist" });
+            return res.json({ success: false, message: "Invalid email or password" });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -137,7 +137,7 @@ const loginUser = async (req, res) => {
                 }
             });
         } else {
-            res.json({ success: false, message: "Invalid credentials" });
+            res.json({ success: false, message: "Invalid email or password" });
         }
 
     } catch (error) {
@@ -150,7 +150,7 @@ const loginUser = async (req, res) => {
 // @route   GET /api/users/profile
 const getProfile = async (req, res) => {
     try {
-        const { userId } = req.body; // Set by auth middleware
+        const userId = req.userId;
         
         const { data: user, error } = await supabase
             .from('users')
@@ -173,7 +173,8 @@ const getProfile = async (req, res) => {
 // @route   POST /api/users/wishlist
 const toggleWishlist = async (req, res) => {
     try {
-        const { userId, productId } = req.body;
+        const userId = req.userId;
+        const { productId } = req.body;
         
         const { data: user, error: fetchError } = await supabase
             .from('users')
@@ -211,7 +212,8 @@ const toggleWishlist = async (req, res) => {
 // @route   POST /api/users/sync-wishlist
 const syncWishlist = async (req, res) => {
     try {
-        const { userId, localWishlist } = req.body;
+        const userId = req.userId;
+        const { localWishlist } = req.body;
         if (!userId || !Array.isArray(localWishlist)) {
             return res.json({ success: false, message: "Missing required fields" });
         }
@@ -248,7 +250,8 @@ const syncWishlist = async (req, res) => {
 // @route   PUT /api/users/profile
 const updateProfile = async (req, res) => {
     try {
-        const { userId, firstName, lastName, phone } = req.body;
+        const userId = req.userId;
+        const { firstName, lastName, phone } = req.body;
         
         if (!firstName || !lastName) {
             return res.json({ success: false, message: "First name and last name are required" });

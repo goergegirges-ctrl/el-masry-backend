@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import {
     adminLogin,
     getCustomers,
@@ -15,7 +16,15 @@ import authAdmin from "../middlewar/authAdmin.js";
 
 const adminRouter = express.Router();
 
-adminRouter.post("/login", adminLogin);
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { success: false, message: "Too many login attempts. Please try again in 15 minutes." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+adminRouter.post("/login", adminLoginLimiter, adminLogin);
 adminRouter.get("/dashboard", authAdmin, getDashboardStats);
 adminRouter.get("/analytics/summary", authAdmin, getAnalyticsSummary);
 

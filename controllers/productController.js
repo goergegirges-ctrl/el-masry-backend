@@ -71,12 +71,28 @@ const listProducts = async (req, res) => {
 // active product list (for frontend)
 const listActiveProducts = async (req, res) => {
   try {
-    const { data: products, error } = await supabase.from('products').select('*').eq('isActive', true).order('createdAt', { ascending: false });
+    const page = parseInt(req.query.page) || null;
+    const limit = parseInt(req.query.limit) || null;
+
+    let query = supabase
+      .from('products')
+      .select('*')
+      .eq('isActive', true)
+      .order('createdAt', { ascending: false });
+
+    if (page && limit) {
+      const from = (page - 1) * limit;
+      query = query.range(from, from + limit - 1);
+    } else if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data: products, error } = await query;
     if (error) throw error;
-    res.json({ success: true, data: products })
+    res.json({ success: true, data: products });
   } catch (error) {
     console.log(error);
-    res.json({ success: false, message: "Error" })
+    res.json({ success: false, message: "Error" });
   }
 }
 

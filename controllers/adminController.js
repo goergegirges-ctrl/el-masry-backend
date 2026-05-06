@@ -12,12 +12,12 @@ const adminLogin = async (req, res) => {
             .single();
 
         if (error || !admin) {
-            return res.status(404).json({ success: false, message: "Admin not found" });
+            return res.status(401).json({ success: false, message: "Invalid email or password" });
         }
 
         const isMatch = await bcrypt.compare(password, admin.password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: "Invalid credentials" });
+            return res.status(401).json({ success: false, message: "Invalid email or password" });
         }
 
         const accessToken = jwt.sign(

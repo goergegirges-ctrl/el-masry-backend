@@ -1,10 +1,34 @@
 import { supabase } from "../config/supabaseClient.js";
 import crypto from "crypto";
+import validator from "validator";
 
 // Placing user order for frontend
 const placeOrder = async (req, res) => {
     try {
         const { userId, customer, items, shippingAddress, subtotal, deliveryFee, paymentMethod } = req.body;
+
+        if (!customer || !items || !shippingAddress) {
+            return res.status(400).json({ success: false, message: "Missing required order fields" });
+        }
+        if (!Array.isArray(items) || items.length === 0 || items.length > 100) {
+            return res.status(400).json({ success: false, message: "Invalid items" });
+        }
+        const { firstName, lastName, email, phone } = customer;
+        if (!firstName || !lastName || !email || !phone) {
+            return res.status(400).json({ success: false, message: "Missing customer details" });
+        }
+        if (!validator.isEmail(String(email))) {
+            return res.status(400).json({ success: false, message: "Invalid email address" });
+        }
+        if (!shippingAddress.street || !shippingAddress.city) {
+            return res.status(400).json({ success: false, message: "Missing shipping address" });
+        }
+        for (const item of items) {
+            const qty = Number(item.quantity);
+            if (!item.productId || !Number.isInteger(qty) || qty < 1 || qty > 999) {
+                return res.status(400).json({ success: false, message: "Invalid item quantity" });
+            }
+        }
 
         const newOrder = {
             id: crypto.randomUUID(),
