@@ -286,6 +286,12 @@ const getOrderById = async (req, res) => {
             .single();
 
         if (error) throw error;
+
+        // IDOR guard: regular users may only view their own orders
+        if (req.userId && order.userId !== req.userId) {
+            return res.status(403).json({ success: false, message: "Access denied" });
+        }
+
         res.json({ success: true, data: order });
     } catch (error) {
         console.log(error);
