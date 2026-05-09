@@ -14,6 +14,9 @@ import reviewRouter from "./routs/reviewRoute.js"
 const app = express()
 const port = process.env.PORT || 4000
 
+// Trust Railway/Heroku/Vercel proxy so rate limiter uses real client IP, not load-balancer IP
+app.set('trust proxy', 1)
+
 // middleware
 app.use(helmet())
 app.use(express.json())
