@@ -12,6 +12,11 @@ import {
     getDashboardCharts,
 } from "../controllers/adminController.js";
 import { getDashboardStats, getOrderById } from "../controllers/orderController.js";
+import {
+    getNotifications,
+    markAllRead,
+    streamNotifications,
+} from "../controllers/notificationController.js";
 import authAdmin from "../middlewar/authAdmin.js";
 
 const adminRouter = express.Router();
@@ -41,5 +46,11 @@ adminRouter.get("/analytics/best-sellers", authAdmin, getBestSellers);
 adminRouter.get("/analytics/by-category", authAdmin, getCategoryAnalytics);
 adminRouter.get("/analytics/inventory-alerts", authAdmin, getInventoryAlerts);
 adminRouter.get("/dashboard/charts", authAdmin, getDashboardCharts);
+
+// Notifications
+adminRouter.get("/notifications", authAdmin, getNotifications);
+adminRouter.patch("/notifications/mark-read", authAdmin, markAllRead);
+// SSE stream — auth via ?token= because EventSource can't set headers
+adminRouter.get("/notifications/stream", streamNotifications);
 
 export default adminRouter;

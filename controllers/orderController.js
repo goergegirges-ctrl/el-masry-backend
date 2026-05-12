@@ -68,6 +68,17 @@ const placeOrder = async (req, res) => {
                 .eq('id', item.productId);
         }
 
+        // Notify admins of the new order (fire-and-forget — don't block the response)
+        const total = (Number(subtotal) || 0) + (Number(deliveryFee) || 0);
+        supabase.from('notifications').insert({
+            type: 'new_order',
+            title: 'New Order / طلب جديد',
+            body: `${customer.firstName} ${customer.lastName} — EGP ${total.toLocaleString()} (${items.length} item${items.length !== 1 ? 's' : ''})`,
+            payload: { order_id: newOrder.id },
+        }).then(({ error: nErr }) => {
+            if (nErr) console.error("notification insert error:", nErr);
+        });
+
         res.json({ success: true, message: "Order Placed Successfully", orderId: newOrder.id });
     } catch (error) {
         console.log("Error placing order:", error);
