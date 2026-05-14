@@ -39,14 +39,14 @@ adminRouter.get("/analytics/summary", authAdmin, getAnalyticsSummary);
 // Order detail (admin view — uses authAdmin, not authUser)
 adminRouter.get("/order/:id", authAdmin, getOrderById);
 
-// Order management
+// Order management — DELETE only allowed for cancelled orders (enforced in controller)
 adminRouter.delete("/order/:id", authAdmin, deleteOrder);
 
-// Customer Management
+// Customer management
 adminRouter.get("/customers", authAdmin, getCustomers);
 adminRouter.get("/customer/:id", authAdmin, getCustomerById);
-adminRouter.patch("/user/:id/ban", authAdmin, banUser);
-adminRouter.delete("/user/:id", authAdmin, deleteUser);
+adminRouter.patch("/user/:id/ban", authAdmin, banUser);     // ban / unban
+adminRouter.delete("/user/:id", authAdmin, deleteUser);      // only if 0 orders
 
 // Analytics
 adminRouter.get("/analytics/wishlist-popular", authAdmin, getWishlistPopular);
