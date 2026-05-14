@@ -17,12 +17,16 @@ const authUser = async (req, res, next) => {
         // We also check their role to ensure they aren't an admin trying to use user-only endpoints (if applicable)
         const { data: user, error } = await supabase
             .from('users')
-            .select('id, role')
+            .select('id, role, banned')
             .eq('id', decoded.id)
             .single();
 
         if (error || !user) {
             return res.status(401).json({ success: false, message: "User not found or unauthorized." });
+        }
+
+        if (user.banned) {
+            return res.status(403).json({ success: false, message: "Your account has been suspended" });
         }
 
         req.userId = decoded.id;

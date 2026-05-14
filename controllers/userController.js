@@ -114,6 +114,9 @@ const loginUser = async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (isMatch) {
+            if (user.banned) {
+                return res.json({ success: false, message: "Your account has been suspended" });
+            }
             const accessToken = createAccessToken(user.id, user.role || 'user');
             const refreshToken = createRefreshToken(user.id);
 
@@ -311,12 +314,16 @@ const refreshToken = async (req, res) => {
 
             const { data: user, error } = await supabase
                 .from('users')
-                .select('id, role')
+                .select('id, role, banned')
                 .eq('id', decoded.id)
                 .single();
 
             if (error || !user) {
                 return res.status(401).json({ success: false, message: "User not found" });
+            }
+
+            if (user.banned) {
+                return res.status(403).json({ success: false, message: "Your account has been suspended" });
             }
 
             const accessToken = createAccessToken(user.id, user.role || 'user');
@@ -347,6 +354,9 @@ const oauthLogin = async (req, res) => {
             .single();
 
         if (existingUser) {
+            if (existingUser.banned) {
+                return res.json({ success: false, message: "Your account has been suspended" });
+            }
             // User exists — return JWT
             const accessToken = createAccessToken(existingUser.id, existingUser.role || 'customer');
             const refreshTokenVal = createRefreshToken(existingUser.id);

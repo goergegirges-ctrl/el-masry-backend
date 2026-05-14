@@ -10,6 +10,9 @@ import {
     getCategoryAnalytics,
     getInventoryAlerts,
     getDashboardCharts,
+    deleteOrder,
+    banUser,
+    deleteUser,
 } from "../controllers/adminController.js";
 import { getDashboardStats, getOrderById } from "../controllers/orderController.js";
 import {
@@ -36,9 +39,14 @@ adminRouter.get("/analytics/summary", authAdmin, getAnalyticsSummary);
 // Order detail (admin view — uses authAdmin, not authUser)
 adminRouter.get("/order/:id", authAdmin, getOrderById);
 
+// Order management
+adminRouter.delete("/order/:id", authAdmin, deleteOrder);
+
 // Customer Management
 adminRouter.get("/customers", authAdmin, getCustomers);
 adminRouter.get("/customer/:id", authAdmin, getCustomerById);
+adminRouter.patch("/user/:id/ban", authAdmin, banUser);
+adminRouter.delete("/user/:id", authAdmin, deleteUser);
 
 // Analytics
 adminRouter.get("/analytics/wishlist-popular", authAdmin, getWishlistPopular);

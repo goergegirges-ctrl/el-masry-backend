@@ -64,7 +64,7 @@ const getCustomerById = async (req, res) => {
 
         const { data: customer, error: cusError } = await supabase
             .from('users')
-            .select('id, firstName, lastName, email, phone, savedAddresses, wishlist, role, createdAt')
+            .select('id, firstName, lastName, email, phone, savedAddresses, wishlist, role, banned, createdAt')
             .eq('id', id)
             .single();
 
@@ -93,6 +93,12 @@ const getCustomerById = async (req, res) => {
 
         const orders = rawOrders || [];
 
+        // Count ALL orders (including cancelled) — used for delete eligibility check
+        const { count: allOrdersCount } = await supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('userId', id);
+
         // Enrich wishlist IDs into full product objects
         const wishlistIds = customer.wishlist || [];
         let wishlistProducts = [];
@@ -117,7 +123,8 @@ const getCustomerById = async (req, res) => {
             stats: {
                 totalOrders,
                 totalSpent,
-                avgOrderValue
+                avgOrderValue,
+                allOrdersCount: allOrdersCount || 0
             }
         });
     } catch (error) {
@@ -355,7 +362,7 @@ const getCustomers = async (req, res) => {
     try {
         const { data: users, error: userErr } = await supabase
             .from('users')
-            .select('id, firstName, lastName, email, phone, role, createdAt');
+            .select('id, firstName, lastName, email, phone, role, banned, createdAt');
             
         if (userErr) throw userErr;
 
@@ -483,6 +490,120 @@ const getDashboardCharts = async (req, res) => {
     }
 };
 
+// @desc    Delete order (admin) — only allowed if status is 'cancelled'
+// @route   DELETE /api/admin/order/:id
+const deleteOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data: order, error: fetchError } = await supabase
+            .from('orders')
+            .select('id, status')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+
+        if (order.status !== 'cancelled') {
+            return res.status(400).json({ success: false, message: "Only cancelled orders can be deleted" });
+        }
+
+        const { error: deleteError } = await supabase
+            .from('orders')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) throw deleteError;
+
+        res.json({ success: true, message: "Order deleted successfully" });
+    } catch (error) {
+        console.error("deleteOrder error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Ban or unban a user
+// @route   PATCH /api/admin/user/:id/ban
+// NOTE: requires `banned boolean DEFAULT false` column on the users table:
+//   ALTER TABLE users ADD COLUMN IF NOT EXISTS banned boolean DEFAULT false;
+const banUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { banned } = req.body;
+
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const { data: updated, error: updateError } = await supabase
+            .from('users')
+            .update({ banned: !!banned })
+            .eq('id', id)
+            .select('id, banned')
+            .single();
+
+        if (updateError) throw updateError;
+
+        res.json({
+            success: true,
+            message: banned ? "User banned successfully" : "User unbanned successfully",
+            banned: updated.banned
+        });
+    } catch (error) {
+        console.error("banUser error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Delete a customer (only if they have zero orders of any status)
+// @route   DELETE /api/admin/user/:id
+const deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', id)
+            .single();
+
+        if (fetchError || !user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const { count, error: countError } = await supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('userId', id);
+
+        if (countError) throw countError;
+
+        if (count > 0) {
+            return res.status(400).json({ success: false, message: "Cannot delete a customer with existing orders" });
+        }
+
+        const { error: deleteError } = await supabase
+            .from('users')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) throw deleteError;
+
+        res.json({ success: true, message: "Customer deleted successfully" });
+    } catch (error) {
+        console.error("deleteUser error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export {
     adminLogin,
     getCustomers,
@@ -493,4 +614,7 @@ export {
     getCategoryAnalytics,
     getInventoryAlerts,
     getDashboardCharts,
+    deleteOrder,
+    banUser,
+    deleteUser,
 };
