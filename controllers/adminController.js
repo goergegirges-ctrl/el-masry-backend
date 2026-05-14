@@ -506,7 +506,7 @@ const deleteOrder = async (req, res) => {
             return res.status(404).json({ success: false, message: "Order not found" });
         }
 
-        if (order.status !== 'cancelled') {
+        if (order.status?.toLowerCase() !== 'cancelled') {
             return res.status(400).json({ success: false, message: "Only cancelled orders can be deleted" });
         }
 
